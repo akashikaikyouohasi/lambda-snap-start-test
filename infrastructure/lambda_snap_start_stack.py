@@ -1,4 +1,7 @@
+import shutil
+import subprocess
 import sys
+from pathlib import Path
 
 from aws_cdk import (
     CfnOutput,
@@ -13,6 +16,44 @@ from constructs import Construct
 # https://layers.newrelic-external.com/
 NEW_RELIC_LAYER_ACCOUNT = "451483290750"
 NEW_RELIC_PYTHON_LAYER_NAME = "NewRelicPython312"
+
+# Lambda asset is built into .build/lambda by copying src/ and pip-installing
+# its requirements.txt locally. snapshot-restore-py is pure-Python so there
+# is no platform mismatch with Lambda's Linux x86_64 runtime.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SRC_DIR = _REPO_ROOT / "src"
+_BUILD_DIR = _REPO_ROOT / ".build" / "lambda"
+
+
+def _build_lambda_asset() -> str:
+    if _BUILD_DIR.exists():
+        shutil.rmtree(_BUILD_DIR)
+    _BUILD_DIR.mkdir(parents=True)
+
+    for item in _SRC_DIR.iterdir():
+        if item.name.startswith(("__pycache__", ".")):
+            continue
+        if item.is_file():
+            shutil.copy2(item, _BUILD_DIR / item.name)
+
+    requirements = _SRC_DIR / "requirements.txt"
+    if requirements.exists():
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "--disable-pip-version-check",
+                "--requirement",
+                str(requirements),
+                "--target",
+                str(_BUILD_DIR),
+            ]
+        )
+
+    return str(_BUILD_DIR)
 
 
 class LambdaSnapStartStack(Stack):
@@ -57,7 +98,7 @@ class LambdaSnapStartStack(Stack):
             # The New Relic wrapper takes over as the entry point and dispatches
             # to the real handler defined in NEW_RELIC_LAMBDA_HANDLER.
             handler="newrelic_lambda_wrapper.handler",
-            code=lambda_.Code.from_asset("src"),
+            code=lambda_.Code.from_asset(_build_lambda_asset()),
             memory_size=512,
             timeout=Duration.seconds(15),
             snap_start=lambda_.SnapStartConf.ON_PUBLISHED_VERSIONS,

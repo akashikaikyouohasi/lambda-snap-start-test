@@ -1,6 +1,7 @@
 # CDK
 cdk.out/
 .cdk.staging/
+.build/
 
 # Python
 __pycache__/
