@@ -9,7 +9,9 @@ AWS Lambda + New Relic の組合せを 2 ランタイム × 2 IaC で試す検�
 
 両方とも「Function URL に GET → ハンドラ内で `https://httpbin.org/get` を叩いて結果とレイテンシを返す」という同一のテストシナリオで揃えてあるので、APM 上で並べて見比べやすい。
 
-検証中に見つけた SnapStart × NR Python の trace ID 衝突バグは [docs/snapstart-newrelic-trace-id-collision.md](./docs/snapstart-newrelic-trace-id-collision.md) にまとめてある。
+検証で見つけた発見は `docs/` にまとめてある:
+- [SnapStart × NR Python の trace ID 衝突バグ](./docs/snapstart-newrelic-trace-id-collision.md)
+- [Go + SAM 編の検証ノート (Extension バージョン差、cold start 比較ほか)](./docs/go-sam-newrelic-findings.md)
 
 ## Python 編
 
