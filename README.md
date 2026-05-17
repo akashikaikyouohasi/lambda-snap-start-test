@@ -1,15 +1,28 @@
 # lambda-snap-start-test
 
-AWS Lambda の **SnapStart**（Python 3.12）を、**New Relic Lambda Extension** による APM／分散トレースと併用して試すための最小構成です。
+AWS Lambda + New Relic の組合せを 2 ランタイム × 2 IaC で試す検証リポジトリ。
+
+| 編 | Runtime | IaC | 検証ポイント |
+| --- | --- | --- | --- |
+| [Python 編](#python-編) | Python 3.12 | AWS CDK | SnapStart × New Relic、Distributed Tracing、trace ID 衝突問題と回避策 |
+| [Go 編](./go/) | Go (provided.al2023) | AWS SAM | NR Lambda Extension のみで Go agent と組合せ、Python と比較 |
+
+両方とも「Function URL に GET → ハンドラ内で `https://httpbin.org/get` を叩いて結果とレイテンシを返す」という同一のテストシナリオで揃えてあるので、APM 上で並べて見比べやすい。
+
+検証中に見つけた SnapStart × NR Python の trace ID 衝突バグは [docs/snapstart-newrelic-trace-id-collision.md](./docs/snapstart-newrelic-trace-id-collision.md) にまとめてある。
+
+## Python 編
+
+SnapStart を実際に有効にしてあるのはこちら。
 
 - Runtime: Python 3.12（SnapStart 対応ランタイム）
 - IaC: AWS CDK v2（Python）
-- Observability: New Relic Lambda Layer + Extension（APM / 分散トレース / ログ転送）
+- Observability: New Relic Lambda Layer + Extension（APM / 分散トレース）
 - 動作確認: Function URL に GET → ハンドラ内で外部 URL（既定 `https://httpbin.org/get`）を `urllib.request` で呼び出し → 戻り値とレイテンシを返す
 
 `urllib.request` は `http.client` 経由で New Relic Python エージェントに自動計装されるため、外部呼び出しが分散トレースの span として記録されます。
 
-## ディレクトリ構成
+### ディレクトリ構成 (Python 編)
 
 ```
 .
@@ -18,7 +31,8 @@ AWS Lambda の **SnapStart**（Python 3.12）を、**New Relic Lambda Extension*
 ├── infrastructure/
 │   └── lambda_snap_start_stack.py        # Lambda + Alias + Function URL + NR Layer
 ├── src/
-│   └── handler.py                         # 外部 URL を叩くだけのハンドラ
+│   ├── handler.py                         # 外部 URL を叩くだけのハンドラ
+│   └── requirements.txt                   # snapshot-restore-py
 └── requirements.txt                       # CDK の Python 依存
 ```
 

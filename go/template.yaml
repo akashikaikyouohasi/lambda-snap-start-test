@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Go Lambda + New Relic Lambda Extension test
+
+Parameters:
+  NewRelicLicenseKey:
+    Type: String
+    NoEcho: true
+    Description: New Relic license key (Ingest - License type).
+  NewRelicAccountId:
+    Type: String
+    Description: New Relic account id (e.g. 7674913).
+  NewRelicExtensionLayerVersion:
+    Type: String
+    Default: "73"
+    Description: |
+      Version of the NewRelicLambdaExtension layer in this region.
+      Latest version is published at https://layers.newrelic-external.com/ ,
+      or query with:
+        aws lambda list-layer-versions \
+          --layer-name arn:aws:lambda:ap-northeast-1:451483290750:layer:NewRelicLambdaExtension \
+          --query 'LayerVersions[0].Version'
+  ExternalUrl:
+    Type: String
+    Default: https://httpbin.org/get
+    Description: URL that the Lambda will GET on every invocation.
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 512
+    Runtime: provided.al2023
+    Architectures:
+      - x86_64
+
+Resources:
+  GoFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: lambda-snap-start-test-go
+      Handler: bootstrap
+      CodeUri: ./
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:451483290750:layer:NewRelicLambdaExtension:${NewRelicExtensionLayerVersion}
+      Environment:
+        Variables:
+          NEW_RELIC_LICENSE_KEY: !Ref NewRelicLicenseKey
+          NEW_RELIC_ACCOUNT_ID: !Ref NewRelicAccountId
+          NEW_RELIC_APP_NAME: lambda-snap-start-test-go
+          NEW_RELIC_LAMBDA_EXTENSION_ENABLED: "true"
+          NEW_RELIC_EXTENSION_SEND_FUNCTION_LOGS: "false"
+          NEW_RELIC_DISTRIBUTED_TRACING_ENABLED: "true"
+          NEW_RELIC_EXTENSION_LOG_LEVEL: INFO
+          EXTERNAL_URL: !Ref ExternalUrl
+      FunctionUrlConfig:
+        AuthType: NONE
+
+Outputs:
+  FunctionName:
+    Value: !Ref GoFunction
+  FunctionUrl:
+    Value: !GetAtt GoFunctionUrl.FunctionUrl
